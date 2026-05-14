@@ -114,7 +114,7 @@ def analyze_log(log_text: str) -> dict:
     if not API_KEY:
         raise ValueError("ANTROPIC_API_KEY enviorment varabile not set.")
     
-    client = anthropic.Anthropic(api_KEY=API_KEY)
+    client = anthropic.Anthropic(api_key=API_KEY)
 
     message = client.messages.create(
         model = "claude-sonnet-4-20250514",
@@ -130,12 +130,19 @@ def analyze_log(log_text: str) -> dict:
 
     raw_text = message.content[0].text.strip()
 
-    if raw_text.startswit("'''"):
-        raw_text = raw_text.split("'''")[1]
-        if raw_text.starswith("json"):
-            raw_text = raw_text[4:]
+    if raw_text.startswith("```"):
+        lines = raw_text.splitlines()
+        if lines[0].startswith("```"):
+            lines = lines[1:] 
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        raw_text = "\n".join(lines).strip()
     
-    return json.loads(raw_text.strip())
+    try:
+        return json.loads(raw_text)
+    except json.JSONDecodeError as e:
+        print(f"\n[!] DEBUG: Failed to parse JSON. Claude's output was:\n{raw_text}\n")
+        raise e
 
 def run_full_analysis(log_text: str) -> dict:
     """
@@ -174,7 +181,7 @@ def generate_report(report:dict, log_text: str) -> str:
         "       AI FORENSICS ANALYZER - CASE REPORT",
         sep,
         f"  Case ID     : {report.get('case_id', ' N/A')}",
-        f"  Timestamp   : {report.get['timestamp']}",
+        f"  Timestamp   : {report.get('timestamp')}",
         f"  SHA-256     : {report['sha256_hash']}",
         sep,
         "",
